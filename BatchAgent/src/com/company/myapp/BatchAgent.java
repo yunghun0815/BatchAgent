@@ -313,7 +313,6 @@ public class BatchAgent {
      */
     public void healthCheck(Socket socket) throws IOException {
     	DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-    	log.info("health-check");
     	dos.writeUTF("on");
     	dos.flush();
     	dos.close();
