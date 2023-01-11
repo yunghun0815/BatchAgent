@@ -19,5 +19,5 @@ public enum BatchStatusCode {
 	RESTART("BSRS", "재실행");
 	
 	private final String code;
-	private final String message;
+	private final String title;
 }

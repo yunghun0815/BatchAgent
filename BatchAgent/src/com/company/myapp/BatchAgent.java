@@ -49,6 +49,7 @@ public class BatchAgent {
 	MailService mailService = new MailService();
 	
 	/**
+	 * 설정파일 정보 로드
 	 * 스레드풀, 서버소켓 생성 및 연결 수락 
 	 * @throws IOException
 	 */	
@@ -72,19 +73,17 @@ public class BatchAgent {
 		
 		// 작업 스레드 생성
 		threadPool.execute(new Runnable() {
-			/**
-			 * 이부분 예외처리 수정해야 함 -> 트라이캐치가 와일문 밖으로 
-			 */
+			
 			@Override
 			public void run() {
-				while(true) {
+				if(!serverSocket.isClosed()) {
 					try {
-						// 연결 수락 및 처리 메소드 호출
-						Socket socket = serverSocket.accept();
-						receiveMessage(socket);
-						
-					} catch (IOException e) {
-						e.printStackTrace();
+						while(true) {
+							Socket socket = serverSocket.accept();
+							receiveMessage(socket);
+						}
+					} catch (Exception e) {
+						log.info("[응답 에러]" + e.getMessage());
 					}
 				}
 			}
@@ -111,7 +110,6 @@ public class BatchAgent {
 		try {
 			
 			if(sendData == null) throw new RuntimeException();
-			log.info(sendData.toString());
 			
 			// 소켓 생성 및 배치 관리 서버 연결 요청
 			Socket socket = new Socket(managementIp, managementPort);
@@ -119,11 +117,11 @@ public class BatchAgent {
 
 			log.info("[배치 관리 서버 연결] "+ managementIp + ":" + managementPort);
 			
-			
+			ObjectMapper mapper = new ObjectMapper();
+			String message = mapper.writeValueAsString(sendData);
 			JSONObject json = new JSONObject();
 			json.put("cmd", "log");
-			json.put("message", sendData);
-			
+			json.put("message", message);
 			String sendDataStr = json.toString();
 			
 			// 데이터 전송 후 연결 종료
@@ -173,10 +171,11 @@ public class BatchAgent {
 						
 						boolean error = false;
 						for(JsonDto receiveData : receiveDataList) {
+							log.info(receiveData.toString());
 							JsonDto sendData = new JsonDto();
 							sendData.setBatPrmStCd(BatchStatusCode.FAIL.getCode());
 							if(!error) 	{
-								sendData = runProgram(receiveData.getPath(), receiveData.getParam());
+								sendData = runProgram(receiveData.getPath(), receiveData.getParam()); // 프로그램 실행
 								if(sendData.getBatPrmStCd().equals(BatchStatusCode.FAIL.getCode())) error = true;
 							}
 							// 프로그램 실행 및 반환 -> 실패시 다음 순서 전부 실패
@@ -314,7 +313,7 @@ public class BatchAgent {
      */
     public void healthCheck(Socket socket) throws IOException {
     	DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-    	
+    	log.info("health-check");
     	dos.writeUTF("on");
     	dos.flush();
     	dos.close();
@@ -326,43 +325,5 @@ public class BatchAgent {
 		
 
 		batchAgent.start();
-	//	batchAgent.setPath(batchAgent.rootPath);
-	//	System.out.println(batchAgent.pathArray);
-	//	batchAgent.sendPath();
-	//	JSONArray json = new JSONArray();
-	//	json = batchAgent.insertFile(json, batchAgent.rootPath);
-		//System.out.println(batchAgent.insertFile(json, batchAgent.rootPath));
-	//	System.out.println(json);
-	//	JSONObject j1 = new JSONObject();
-		
-	//	JSONObject j2 = new JSONObject();
-	//	JSONObject j3 = new JSONObject();
-		
-	//	j1.put("dir", j2);
-	//	j2.put("dir", j3);
-	//	j3.put("file", "test");
-	//	json.put("dir", j1);
-		
-		//System.out.println(json);
-	//	System.out.println(batchAgent.getFinalDir(json));
-	//	System.out.println(json.get("test"));
-//		JsonDto dto = batchAgent.runProgram("C:\\dev\\batch-agent\\test-app3.bat", null);
-//		System.out.println(dto.toString());
-		
-		// receive 에러 테스트
-		// batchAgent.receiveMessage(new Socket());
-		
-		// send 에러 테스트
-		// batchAgent.sendMessage(batchAgent.testSet());
-	}
-	
-	// 테스트용 
-	public JsonDto testSet() {		
-		JsonDto dto = new JsonDto();
-		
-		dto.setBatGrpLogId("test111");
-		dto.setBatGrpRtyCnt(1);
-		dto.setLastYn("Y");
-		return dto;
 	}
 }
