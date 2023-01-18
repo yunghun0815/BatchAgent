@@ -5,6 +5,7 @@ import java.util.Properties;
 
 import javax.mail.Authenticator;
 import javax.mail.Message;
+import javax.mail.MessagingException;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
@@ -30,12 +31,12 @@ public class MailService {
 	 * SMTP 설정 및 시스템 계정 등록
 	 * @throws IOException 
 	 */
-	public MailService() {
+	public MailService(String[] adminEmail) {
+		this.adminEmail = adminEmail;
 		// 관리자, 시스템 이메일 세팅
 		try {
 			Properties agentProps = new Properties();
 			agentProps.load(MailService.class.getResourceAsStream("/agent.properties"));
-			adminEmail= agentProps.getProperty("admin.email").split(",");
 			systemEmail= agentProps.getProperty("system.email");
 			systemPassword= agentProps.getProperty("system.password");
 			
@@ -45,10 +46,9 @@ public class MailService {
 					return new PasswordAuthentication(systemEmail, systemPassword);
 				}
 			});
-		}catch(Exception e) {
-			e.printStackTrace();
+		} catch(IOException | NullPointerException e) {
+			log.error("[메일 객체 생성 실패] {}", e.getMessage());
 		}
-	
 	}
 	
 	
@@ -70,10 +70,11 @@ public class MailService {
 			message.addRecipients(Message.RecipientType.TO, addr); // TO 등록
 			message.setSubject(title); //제목
 			message.setContent(content, "text/html; charset=utf-8"); //내용
-			log.info("메일 전송");
+			
 			Transport.send(message); //보내기
-		} catch (Exception e) {
-			e.printStackTrace();
-		} 
+			log.info("[메일 전송] {}님 등 {}명에게 메일을 전송하였습니다.", addr[0], addr.length);
+		} catch (IOException | MessagingException | NullPointerException  e) {
+			log.error("[메일 전송 실패] {}", e.getMessage());
+		}
 	}
 }

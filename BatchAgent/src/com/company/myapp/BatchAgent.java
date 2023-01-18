@@ -6,23 +6,28 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.ConnectException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.sql.Date;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.mail.Authenticator;
-import javax.mail.PasswordAuthentication;
-import javax.mail.Session;
+import javax.mail.internet.AddressException;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.company.myapp.code.BatchStatusCode;
+import com.company.myapp.code.CommandCode;
 import com.company.myapp.dto.JsonDto;
 import com.company.myapp.service.MailService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -41,12 +46,14 @@ public class BatchAgent {
 	String managementIp; // 관리서버 아이피
 	int managementPort; // 관리서버 포트
 	
+	String ip; // 현재 서버 ip  
+	int port; // 소켓 생성할 포트
+	
 	ExecutorService threadPool;
 	ServerSocket serverSocket;
 	
 	JSONArray pathArray = new JSONArray();
 	Properties properties = new Properties();
-	MailService mailService = new MailService();
 	
 	/**
 	 * 설정파일 정보 로드
@@ -62,7 +69,10 @@ public class BatchAgent {
 		managementPort = Integer.parseInt(properties.get("management.server.port").toString());
 		managementIp = properties.getProperty("management.server.ip");
 		
-		int port = Integer.parseInt(properties.get("agent.server.port").toString());
+		// 내 아이피, 포트 셋팅
+		InetAddress local = InetAddress.getLocalHost();
+		ip = local.getHostAddress();
+		port = Integer.parseInt(properties.get("agent.server.port").toString());
 		int threadNum = Integer.parseInt(properties.get("threadNum").toString());
 
 		// 스레드풀 생성
@@ -83,7 +93,7 @@ public class BatchAgent {
 							receiveMessage(socket);
 						}
 					} catch (Exception e) {
-						log.info("[응답 에러]" + e.getMessage());
+						log.error("[응답 에러] {}", e.getMessage());
 					}
 				}
 			}
@@ -107,42 +117,48 @@ public class BatchAgent {
 	 * @throws IOException 
 	 */	
 	public void sendMessage(JsonDto sendData) {
-		try {
-			
-			if(sendData == null) throw new RuntimeException();
-			
+		
+		try(
 			// 소켓 생성 및 배치 관리 서버 연결 요청
 			Socket socket = new Socket(managementIp, managementPort);
 			DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-
-			log.info("[배치 관리 서버 연결] "+ managementIp + ":" + managementPort);
-			
+		) {
 			ObjectMapper mapper = new ObjectMapper();
 			String message = mapper.writeValueAsString(sendData);
 			JSONObject json = new JSONObject();
-			json.put("cmd", "log");
+			json.put("cmd", CommandCode.LOG.getCode());
 			json.put("message", message);
 			String sendDataStr = json.toString();
 			
-			// 데이터 전송 후 연결 종료
+			// 데이터 전송
 			dos.writeUTF(sendDataStr);
-			dos.flush();
-			dos.close();
-			socket.close();
-		}catch (Exception e) {
-			e.printStackTrace();
+			log.info("로그ID: '{}' / 프로그램ID: '{}' {}회차 배치 결과를 전송하였습니다.", 
+					sendData.getBatGrpLogId(), sendData.getBatPrmId(), sendData.getBatGrpRtyCnt()+1);
+		} catch (JsonProcessingException | NullPointerException e) {
+			log.error("[결과 변환 에러] {}", e.getMessage());
+			log.error("[보낼 데이터] {}", sendData);
+		} catch (UnknownHostException | ConnectException e) {
+			log.error("[SOCKET 생성 에러] {}", e.getMessage());
+			log.error("[보낼 데이터] {}", sendData);
+			MailService mailService = new MailService(sendData.getAdminEmail());
 			// 네트워크 에러로 관리자에게 결과 메일 전송
-			if(sendData != null) {
-				String title = "[네트워크 에러]"+ sendData.getBatPrmId()+ " 실행 결과";
-				String content = "<h4>배치 관리 서버와 통신 에러가 발생하였으나 배치 프로그램은 실행이 완료되었습니다.</h4><br>"
-								+ "<p><strong>실행 결과</strong></p><p>" + sendData.toString() + "</p>";
-				mailService.sendMail(title, content);
-			}else {
-				String title = "[에러] 실행한 프로그램의 값이 정상적이지 않습니다.";
-				String content = "<h4>프로그램은 실행되었으나 보낼 데이터가 정상적이지 않습니다.</h4><br>"
-								+ "<p><strong>에러 메세지</strong></p><p>" + e.getMessage() + "</p>";
-				mailService.sendMail(title, content);
-			}
+			String title = "[AGENT SERVER] 네트워크 에러가 발생하였습니다.";
+			String content = "<h4>배치 관리 서버 통신 에러로 실행 결과를 전송하지 못했습니다.</h4><br>"
+							+ "<p><strong>호스트 정보 - "+ ip + ":" +port +"</strong></p>"
+							+ "<p><strong>프로그램ID - "+ sendData.getBatPrmId() +"</strong></p>"
+							+ "<p><strong>실행 결과 - " + sendData.toString() + "</strong></p>";
+			mailService.sendMail(title, content);
+		}  catch (Exception e) {
+			log.error("[결과 전송 실패] {}", e.getMessage());
+			log.error("[보낼 데이터] {}", sendData);
+			MailService mailService = new MailService(sendData.getAdminEmail());
+			// 네트워크 에러로 관리자에게 결과 메일 전송
+			String title = "[AGENT SERVER] 네트워크 에러가 발생하였습니다.";
+			String content = "<h4>배치 관리 서버 통신 에러로 실행 결과를 전송하지 못했습니다.</h4><br>"
+							+ "<p><strong>호스트 정보 - "+ ip + ":" +port +"</strong></p>"
+							+ "<p><strong>프로그램ID - "+ sendData.getBatPrmId() +"</strong></p>"
+							+ "<p><strong>실행 결과 - " + sendData.toString() + "</strong></p>";
+			mailService.sendMail(title, content);
 		}
 	}
 	
@@ -160,20 +176,21 @@ public class BatchAgent {
 					
 					String message = dis.readUTF();
 					JSONObject jsonMessage = new JSONObject(message);
-
-					if(jsonMessage.get("cmd").equals("path")) {				// 경로 요청
+					String cmd = jsonMessage.getString("cmd");
+					
+					if(cmd.equals(CommandCode.PATH.getCode())) {		// 경로 요청
 						sendPath(socket);
-					}else if(jsonMessage.get("cmd").equals("healthCheck")) {					// 상태 체크
+					}else if(cmd.equals(CommandCode.CHECK.getCode())) {	// 상태 체크
 						healthCheck(socket);
-					}else if(jsonMessage.get("cmd").equals("run")){			// 배치 실행
+					}else if(cmd.equals(CommandCode.RUN.getCode())){	// 배치 실행
 						ObjectMapper mapper = new ObjectMapper();
 						List<JsonDto> receiveDataList = mapper.readValue(jsonMessage.get("message").toString(), new TypeReference<List<JsonDto>>() {});
 						
 						boolean error = false;
 						for(JsonDto receiveData : receiveDataList) {
-							log.info(receiveData.toString());
 							JsonDto sendData = new JsonDto();
-							sendData.setBatPrmStCd(BatchStatusCode.FAIL.getCode());
+							sendData.setAdminEmail(receiveData.getAdminEmail()); // 이메일
+							sendData.setBatPrmStCd(BatchStatusCode.FAIL.getCode()); // 결과 코드 
 							if(!error) 	{
 								sendData = runProgram(receiveData.getPath(), receiveData.getParam()); // 프로그램 실행
 								if(sendData.getBatPrmStCd().equals(BatchStatusCode.FAIL.getCode())) error = true;
@@ -200,12 +217,7 @@ public class BatchAgent {
 						}
 					}
 				} catch (Exception e) {
-					e.printStackTrace();
-					String title = "[네트워크 에러] 배치프로그램을 실행할 수 없습니다.";
-					String content = "<h4>배치 관리서버에서 전송한 프로그램 정보를 받을 수 없거나 잘못된 형식입니다.</h4><br>"
-									+ "<p><strong>발생 시간 : <strong>" +  new java.util.Date() + "</p>"
-									+ "<p><strong>에러 메세지<strong></p><p>" + e.getMessage() + "</p>";
-					mailService.sendMail(title, content);
+					log.error("[SOCKET 응답 에러]", e.getMessage());
 				}
 			}
 		});
@@ -220,30 +232,28 @@ public class BatchAgent {
 	public JsonDto runProgram(String path, String param) {
 		
 		JsonDto jsonDto = new JsonDto();
-		
+		List<String> cmd = new ArrayList<>();
 		jsonDto.setBatBgngDt(new Date(System.currentTimeMillis()));
 		try {
-			// cmd[0] = 실행 파일 경로, cmd[1] = 파라미터 
-			String[] cmd = new String[1];
-			cmd[0] = path;
-			// 파라미터 있으면 추가
-			if(param != null && !param.equals("")) {
-				cmd = new String[2];
-				cmd[0] = path;
-				cmd[1] = param;
-				jsonDto.setParam(param);
-			};
 			
 			// 확장자 분기처리 (bat, sh, jar)
 			int lastDot = path.lastIndexOf(".");
 			String extension = path.substring(lastDot + 1);
+
+			// 명령어 추가
 			if(extension.equals("jar")) {
-				path = "java -jar" + path;
+				cmd.add("java");
+				cmd.add("-jar");
 			}else if(extension.equals("sh")) {
-				path = "sh" + path;
+				cmd.add("sh");
 			}
+			
+			cmd.add(path);	// 경로 추가
+			if(param != null && !param.equals(""))cmd.add(param);	//파라미터 있으면 추가
+			ProcessBuilder pb = new ProcessBuilder(cmd);	// ProcessBuilder 객체 생성
+			Process process = pb.start();	// 실행
+			
 			// 프로그램 실행
-			Process process = Runtime.getRuntime().exec(cmd);
 			BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));						
 			String line = null;
 			StringBuffer sb = new StringBuffer();
@@ -252,12 +262,12 @@ public class BatchAgent {
 			while((line = br.readLine()) != null ) {
 				sb.append(line);
 			}
-			log.info("[실행결과]: " + sb.toString());
+			log.info("[{} 실행결과] {}", sb.toString());
 			jsonDto.setRsltMsg(sb.toString());
 			jsonDto.setBatPrmStCd(BatchStatusCode.SUCCESS.getCode());
 			jsonDto.setBatEndDt(new Date(System.currentTimeMillis()));
-		}catch(Exception e) {
-			e.printStackTrace();
+		}catch(IOException e) {
+		log.error("[프로그램 실행 에러]	{}", e.getMessage());
 			String result = "[프로그램 실행 실패] " + e.getMessage();
 			
 			jsonDto.setRsltMsg(result);
@@ -319,10 +329,10 @@ public class BatchAgent {
     	socket.close();
     }
     
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, AddressException {
 		BatchAgent batchAgent = new BatchAgent();
-		
-
 		batchAgent.start();
+		
+		
 	}
 }

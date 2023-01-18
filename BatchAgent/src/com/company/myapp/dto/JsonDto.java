@@ -29,4 +29,6 @@ public class JsonDto {
 	private Date batBgngDt; 		// 배치 시작 시간
 	private Date batEndDt; 			// 배시 종료 시간
 	private String lastYn;			// 마지막인지 체크
+	
+	private String[] adminEmail; // 통신 오류시 결과 보낼 관리자 이메일
 }

@@ -1,4 +1,4 @@
-package com.company.myapp;
+package com.company.myapp.code;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +15,7 @@ public enum BatchStatusCode {
 	SUCCESS("BSSC","성공"),
 	FAIL("BSFL", "실패"),
 	RUNNING("BSRN", "실행중"),
-	WAIT("BSWT", "대기"),
-	RESTART("BSRS", "재실행");
+	WAIT("BSWT", "대기");
 	
 	private final String code;
 	private final String title;
