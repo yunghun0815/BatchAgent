@@ -6,6 +6,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -17,10 +18,12 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import javax.mail.internet.AddressException;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.company.myapp.code.BatchStatusCode;
@@ -174,12 +177,12 @@ public class BatchAgent {
 				try {
 					DataInputStream dis = new DataInputStream(socket.getInputStream());
 					
-					String message = dis.readUTF();
-					JSONObject jsonMessage = new JSONObject(message);
+					String request = dis.readUTF();
+					JSONObject jsonMessage = new JSONObject(request);
 					String cmd = jsonMessage.getString("cmd");
 					
 					if(cmd.equals(CommandCode.PATH.getCode())) {		// 경로 요청
-						sendPath(socket);
+						sendPath(socket, jsonMessage.getString("message"));
 					}else if(cmd.equals(CommandCode.CHECK.getCode())) {	// 상태 체크
 						healthCheck(socket);
 					}else if(cmd.equals(CommandCode.RUN.getCode())){	// 배치 실행
@@ -213,11 +216,14 @@ public class BatchAgent {
 							
 							
 							socket.close();
-							Thread.sleep(10000L);
 						}
 					}
-				} catch (Exception e) {
+				} catch(JSONException e) {
+					log.error("[관리서버 메세지 형식 에러]", e.getMessage());
+				} catch(IOException e) {
 					log.error("[SOCKET 응답 에러]", e.getMessage());
+				} catch(Exception e) {
+					log.error("[메세지 응답 에러]", e.getMessage());
 				}
 			}
 		});
@@ -250,7 +256,7 @@ public class BatchAgent {
 			
 			cmd.add(path);	// 경로 추가
 			if(param != null && !param.equals(""))cmd.add(param);	//파라미터 있으면 추가
-			ProcessBuilder pb = new ProcessBuilder(cmd);	// ProcessBuilder 객체 생성
+			ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);;	// ProcessBuilder 객체 생성
 			Process process = pb.start();	// 실행
 			
 			// 프로그램 실행
@@ -262,10 +268,21 @@ public class BatchAgent {
 			while((line = br.readLine()) != null ) {
 				sb.append(line);
 			}
-			log.info("[{} 실행결과] {}", sb.toString());
-			jsonDto.setRsltMsg(sb.toString());
-			jsonDto.setBatPrmStCd(BatchStatusCode.SUCCESS.getCode());
+			// 프로그램 실행 결과 결과 코드와 결과 메세지로 분리
+			String[] result = sb.toString().split(",");
+			
+			if(result[0].equals("1")) { // 결과 1이면 성공
+				jsonDto.setBatPrmStCd(BatchStatusCode.SUCCESS.getCode());
+				log.info("[{} 실행결과] {}", path, result[1]);
+			}else { // 0이면 실패
+				jsonDto.setBatPrmStCd(BatchStatusCode.FAIL.getCode());
+				log.error("[{} 실행결과] {}", path, result[1]);
+			}
+			jsonDto.setRsltMsg(result[1]);
 			jsonDto.setBatEndDt(new Date(System.currentTimeMillis()));
+			
+			br.close();
+			process.destroy();
 		}catch(IOException e) {
 		log.error("[프로그램 실행 에러]	{}", e.getMessage());
 			String result = "[프로그램 실행 실패] " + e.getMessage();
@@ -277,44 +294,74 @@ public class BatchAgent {
 		return jsonDto;
 	}
 	
+	public void sendPath(Socket socket, String message) {
+		try(DataOutputStream dos = new DataOutputStream(socket.getOutputStream());) {
+		JSONObject result = new JSONObject();
+		JSONArray file = new JSONArray();
+		JSONArray dir = new JSONArray();
+		
+		File temp = new File(message);
+		File[] path = temp.listFiles();
+		
+		for(File f : path) {
+			if(f.isDirectory()) {
+				dir.put(f.getPath());
+			}else {
+				file.put(f.getPath());
+			}
+		}
+		
+		result.put("dir", dir);
+		result.put("file", file);
+		
+		dos.writeUTF(result.toString());
+		
+		socket.close();
+		} catch(NullPointerException e) {
+			log.error("[경로 에러] 일치하는 경로가 없습니다.");
+		} catch(IOException e) {
+			log.error("[연결 에러] 배치 관리 서버와 통신 에러가 발생해 경로를 보낼 수 없습니다.");
+		}
+	}
+	
 	/**
 	 * 배치 파일 경로 전송
 	 * @param socket
 	 * @throws IOException
 	 */
-	public void sendPath(Socket socket) throws IOException {
-		
-		DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-		setPath(rootPath);
-		
-		dos.writeUTF(pathArray.toString());
-		
-		dos.flush();
-		dos.close();
-		socket.close();
-		pathArray = new JSONArray();
-	}
+	/*	public void sendPath(Socket socket) throws IOException {
+			
+			DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+			setPath(rootPath);
+			
+			dos.writeUTF(pathArray.toString());
+			
+			dos.flush();
+			dos.close();
+			socket.close();
+			pathArray = new JSONArray();
+		}*/
 	
 	/**
 	 * 재귀호출해서 JSONArray에 저장
 	 * @param object
 	 * @return
 	 */
-    public void setPath(String strDirPath) { 
-    	
-        File temp = new File( strDirPath ); 
-        File[] path = temp.listFiles(); 
-         
-        for( int i = 0; i < path.length; i++ ) { 
-             
-             
-            if( path[i].isDirectory() ) { 
-            	setPath(path[i].getPath() );  // 재귀함수 호출 
-            }else if( path[i].isFile() ) { 
-            	pathArray.put(path[i].getPath());
-            }
-        }
-    } 
+	/*    public void setPath(String strDirPath) { 
+		
+	    File temp = new File( strDirPath ); 
+	    File[] path = temp.listFiles(); 
+	     
+	    for( int i = 0; i < path.length; i++ ) { 
+	         
+	         
+	        if( path[i].isDirectory() ) { 
+	        	setPath(path[i].getPath() );  // 재귀함수 호출 
+	        }else if( path[i].isFile() ) { 
+	        	pathArray.put(path[i].getPath());
+	        }
+	    }
+	} */
 	
     /**
      * Agent 서버 통신 체크
@@ -329,10 +376,14 @@ public class BatchAgent {
     	socket.close();
     }
     
-	public static void main(String[] args) throws IOException, AddressException {
+    public void test(Socket socket, String message) {
+    	JSONObject json = new JSONObject(message);
+    	json.get("path");
+    }
+    
+	public static void main(String[] args) throws IOException {
+		
 		BatchAgent batchAgent = new BatchAgent();
 		batchAgent.start();
-		
-		
 	}
 }
