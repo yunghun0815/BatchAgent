@@ -188,7 +188,7 @@ public class BatchAgent {
 					}else if(cmd.equals(CommandCode.RUN.getCode())){	// 배치 실행
 						ObjectMapper mapper = new ObjectMapper();
 						List<JsonDto> receiveDataList = mapper.readValue(jsonMessage.get("message").toString(), new TypeReference<List<JsonDto>>() {});
-						
+						System.out.println(receiveDataList.size());
 						boolean error = false;
 						for(JsonDto receiveData : receiveDataList) {
 							JsonDto sendData = new JsonDto();
@@ -223,6 +223,7 @@ public class BatchAgent {
 				} catch(IOException e) {
 					log.error("[SOCKET 응답 에러]", e.getMessage());
 				} catch(Exception e) {
+					e.printStackTrace();
 					log.error("[메세지 응답 에러]", e.getMessage());
 				}
 			}
@@ -269,16 +270,24 @@ public class BatchAgent {
 				sb.append(line);
 			}
 			// 프로그램 실행 결과 결과 코드와 결과 메세지로 분리
-			String[] result = sb.toString().split(",");
+			String[] resultArr = sb.toString().split(",");
+			String result = null;
 			
-			if(result[0].equals("1")) { // 결과 1이면 성공
+			// 형식 다를경우 대비
+			if(resultArr.length == 1) {
+				result = "배치 파일 응답 형식을 확인해주세요";
+			}else {
+				result = resultArr[1];	
+			}
+			
+			if(resultArr[0].equals("1")) { // 결과 1이면 성공
 				jsonDto.setBatPrmStCd(BatchStatusCode.SUCCESS.getCode());
-				log.info("[{} 실행결과] {}", path, result[1]);
+				log.info("[{} 실행결과] {}", path, result);
 			}else { // 0이면 실패
 				jsonDto.setBatPrmStCd(BatchStatusCode.FAIL.getCode());
-				log.error("[{} 실행결과] {}", path, result[1]);
+				log.error("[{} 실행결과] {}", path, result);
 			}
-			jsonDto.setRsltMsg(result[1]);
+			jsonDto.setRsltMsg(result);
 			jsonDto.setBatEndDt(new Date(System.currentTimeMillis()));
 			
 			br.close();
