@@ -6,7 +6,6 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -14,13 +13,11 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.sql.Date;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import javax.mail.internet.AddressException;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -303,6 +300,11 @@ public class BatchAgent {
 		return jsonDto;
 	}
 	
+	/**
+	 * 받은 경로의 하위 폴더, 파일 리턴
+	 * @param socket
+	 * @param message
+	 */
 	public void sendPath(Socket socket, String message) {
 		try(DataOutputStream dos = new DataOutputStream(socket.getOutputStream());) {
 		JSONObject result = new JSONObject();
@@ -333,44 +335,6 @@ public class BatchAgent {
 		}
 	}
 	
-	/**
-	 * 배치 파일 경로 전송
-	 * @param socket
-	 * @throws IOException
-	 */
-	/*	public void sendPath(Socket socket) throws IOException {
-			
-			DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-			setPath(rootPath);
-			
-			dos.writeUTF(pathArray.toString());
-			
-			dos.flush();
-			dos.close();
-			socket.close();
-			pathArray = new JSONArray();
-		}*/
-	
-	/**
-	 * 재귀호출해서 JSONArray에 저장
-	 * @param object
-	 * @return
-	 */
-	/*    public void setPath(String strDirPath) { 
-		
-	    File temp = new File( strDirPath ); 
-	    File[] path = temp.listFiles(); 
-	     
-	    for( int i = 0; i < path.length; i++ ) { 
-	         
-	         
-	        if( path[i].isDirectory() ) { 
-	        	setPath(path[i].getPath() );  // 재귀함수 호출 
-	        }else if( path[i].isFile() ) { 
-	        	pathArray.put(path[i].getPath());
-	        }
-	    }
-	} */
 	
     /**
      * Agent 서버 통신 체크
@@ -390,9 +354,14 @@ public class BatchAgent {
     	json.get("path");
     }
     
-	public static void main(String[] args) throws IOException {
-		
+	public static void main(String[] args) throws Exception {
 		BatchAgent batchAgent = new BatchAgent();
 		batchAgent.start();
+		
+		
+		for(int i=0; i<10; i++) {
+			Thread.sleep(2000L);
+			log.info("{} 번째 로그",i);
+		}
 	}
 }
