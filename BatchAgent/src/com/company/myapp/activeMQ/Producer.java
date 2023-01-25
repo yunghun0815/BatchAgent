@@ -9,7 +9,13 @@ import javax.jms.TextMessage;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 
-public class EmailProducer {
+/**
+ * @deprecated 
+ * ActiveMQ Producer 객체
+ * @author 정영훈
+ *
+ */
+public class Producer {
 	String myQueue = "hoon";
 	
 	public void send(String text) throws JMSException {
@@ -32,13 +38,7 @@ public class EmailProducer {
 		TextMessage message = session.createTextMessage(text);
 		
 		producer.send(message);
-		System.out.println(message);
 		session.close();
 		connection.close();
-	}
-	
-	public static void main(String[] args) throws JMSException {
-		EmailProducer pro = new EmailProducer();
-		pro.send("test22");
 	}
 }
