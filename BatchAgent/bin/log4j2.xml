@@ -17,11 +17,11 @@
 	</Policies>
 	</RollingFile>
 	
-   	<JMS name="jmsQueue" destinationBindingName="hoon"
+   	<JMS name="jmsQueue" destinationBindingName="agent"
                factoryName="org.apache.activemq.jndi.ActiveMQInitialContextFactory"
                factoryBindingName="ConnectionFactory"
                providerURL="tcp://localhost:61616">
-       	<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level: [%t] %logger{36}.%M() - %msg%n"/>
+       	<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level: %msg%n"/>
     </JMS>
   </Appenders>
   

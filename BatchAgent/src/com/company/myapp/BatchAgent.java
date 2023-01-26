@@ -185,7 +185,6 @@ public class BatchAgent {
 					}else if(cmd.equals(CommandCode.RUN.getCode())){	// 배치 실행
 						ObjectMapper mapper = new ObjectMapper();
 						List<JsonDto> receiveDataList = mapper.readValue(jsonMessage.get("message").toString(), new TypeReference<List<JsonDto>>() {});
-						System.out.println(receiveDataList.size());
 						boolean error = false;
 						for(JsonDto receiveData : receiveDataList) {
 							JsonDto sendData = new JsonDto();

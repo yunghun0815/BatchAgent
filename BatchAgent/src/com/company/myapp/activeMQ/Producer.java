@@ -16,7 +16,7 @@ import org.apache.activemq.ActiveMQConnectionFactory;
  *
  */
 public class Producer {
-	String myQueue = "hoon";
+	String myQueue = "agent";
 	
 	public void send(String text) throws JMSException {
 		// connection factory 생성
