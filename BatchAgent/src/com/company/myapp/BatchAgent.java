@@ -61,7 +61,7 @@ public class BatchAgent {
 	 * @throws IOException
 	 */	
 	public void start() throws IOException {
-		log.info("[서버] 시작");
+		
 		
 		// 설정파일에 있는 정보 로드
 		properties.load(BatchAgent.class.getResourceAsStream("/agent.properties"));
@@ -74,7 +74,7 @@ public class BatchAgent {
 		ip = local.getHostAddress();
 		port = Integer.parseInt(properties.get("agent.server.port").toString());
 		int threadNum = Integer.parseInt(properties.get("threadNum").toString());
-
+		log.info("[{}:{} 서버] 시작", ip, port);
 		// 스레드풀 생성
 		threadPool = Executors.newFixedThreadPool(threadNum);
 		
@@ -105,7 +105,7 @@ public class BatchAgent {
 	 * @throws IOException
 	 */	
 	public void shutdown() throws IOException {
-		log.info("[서버] 종료");		
+		log.info("[{}:{} 서버] 종료", ip, port);
 		threadPool.shutdown();
 		serverSocket.close();
 	}
