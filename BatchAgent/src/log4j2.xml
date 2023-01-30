@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
-  <properties>
-    <property name="log4j2.enableJndiJms">true</property>
-  </properties>
-	
   <Appenders>
     <Console name="Out" target="SYSTEM_OUT">
       <!-- %d{HH:mm:ss.SSS}: 시:분:초:밀리초 / %t: 스레드명 / %logger{36}: logger이름 최대 36자 / .%M 메소드명 / %msg 로그 메시지 / %n 줄바꿈  -->
@@ -21,7 +17,7 @@
                factoryName="org.apache.activemq.jndi.ActiveMQInitialContextFactory"
                factoryBindingName="ConnectionFactory"
                providerURL="tcp://localhost:61616">
-       	<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level: %msg%n"/>
+       	<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [${sys:ip}:${sys:port}] %-5level: %msg%n"/>
     </JMS>
   </Appenders>
   

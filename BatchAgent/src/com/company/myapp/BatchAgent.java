@@ -19,6 +19,8 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.log4j.Logger;
+import org.apache.logging.log4j.message.StringMapMessage;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -41,7 +43,6 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 public class BatchAgent {
 	
-	
 	String rootPath; // 배치파일 경로
 	String managementIp; // 관리서버 아이피
 	int managementPort; // 관리서버 포트
@@ -62,7 +63,6 @@ public class BatchAgent {
 	 */	
 	public void start() throws IOException {
 		
-		
 		// 설정파일에 있는 정보 로드
 		properties.load(BatchAgent.class.getResourceAsStream("/agent.properties"));
 		rootPath = properties.getProperty("agent.batch.path");
@@ -74,7 +74,11 @@ public class BatchAgent {
 		ip = local.getHostAddress();
 		port = Integer.parseInt(properties.get("agent.server.port").toString());
 		int threadNum = Integer.parseInt(properties.get("threadNum").toString());
-		log.info("[{}:{} 서버] 시작", ip, port);
+		
+		System.setProperty("ip", ip);
+		System.setProperty("port", String.valueOf(port));
+		
+		log.info("[Agent 서버] 시작");
 		// 스레드풀 생성
 		threadPool = Executors.newFixedThreadPool(threadNum);
 		
@@ -105,7 +109,7 @@ public class BatchAgent {
 	 * @throws IOException
 	 */	
 	public void shutdown() throws IOException {
-		log.info("[{}:{} 서버] 종료", ip, port);
+		log.info("[Agent 서버] 종료");
 		threadPool.shutdown();
 		serverSocket.close();
 	}
@@ -346,11 +350,6 @@ public class BatchAgent {
     	dos.flush();
     	dos.close();
     	socket.close();
-    }
-    
-    public void test(Socket socket, String message) {
-    	JSONObject json = new JSONObject(message);
-    	json.get("path");
     }
     
 	public static void main(String[] args) throws Exception {
