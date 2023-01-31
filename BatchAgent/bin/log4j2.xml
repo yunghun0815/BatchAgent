@@ -5,8 +5,8 @@
       <!-- %d{HH:mm:ss.SSS}: 시:분:초:밀리초 / %t: 스레드명 / %logger{36}: logger이름 최대 36자 / .%M 메소드명 / %msg 로그 메시지 / %n 줄바꿈  -->
       <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level: [%t] %logger{36}.%M() - %msg%n"/>
     </Console>
-    <RollingFile name="file" fileName="C:/dev/batch-agent/log/${date:yyyy}/${date:MM}/agent-log-dev.log"
-								filePattern="C:/dev/batch-agent/log/${date:yyyy}/${date:MM}/agent_log-dev-%d{yyyyMMdd}.log"> <!-- fileName: 저장 파일명 / filePattern: 롤링시 저장 파일명 -->
+    <RollingFile name="file" fileName="../log/${date:yyyy}/${date:MM}/agent-log.log"
+								filePattern="../log/${date:yyyy}/${date:MM}/agent_log-%d{yyyyMMdd}.log"> <!-- fileName: 저장 파일명 / filePattern: 롤링시 저장 파일명 -->
 	<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level: [%t] %logger{36}.%M() - %msg%n"/>
 	<Policies> <!-- 정책 설정 -->
 		<TimeBasedTriggeringPolicy/><!-- default interval은 1이므로 설정된 패턴에 따라 1일마다 롤링(갱신)  -->

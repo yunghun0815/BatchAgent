@@ -13,14 +13,11 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.sql.Date;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.apache.log4j.Logger;
-import org.apache.logging.log4j.message.StringMapMessage;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
