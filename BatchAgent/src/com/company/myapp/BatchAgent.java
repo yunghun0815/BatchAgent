@@ -62,6 +62,7 @@ public class BatchAgent {
 		
 		// 설정파일에 있는 정보 로드
 		properties.load(BatchAgent.class.getResourceAsStream("/agent.properties"));
+		//properties.load(BatchAgent.class.getResourceAsStream("/conf/agent.properties"));
 		rootPath = properties.getProperty("agent.batch.path");
 		managementPort = Integer.parseInt(properties.get("management.server.port").toString());
 		managementIp = properties.getProperty("management.server.ip");
@@ -74,7 +75,7 @@ public class BatchAgent {
 		
 		System.setProperty("ip", ip);
 		System.setProperty("port", String.valueOf(port));
-		
+		System.setProperty("managementIp", managementIp);
 		log.info("[Agent 서버] 시작");
 		// 스레드풀 생성
 		threadPool = Executors.newFixedThreadPool(threadNum);
