@@ -188,6 +188,7 @@ public class BatchAgent {
 						ObjectMapper mapper = new ObjectMapper();
 						List<JsonDto> receiveDataList = mapper.readValue(jsonMessage.get("message").toString(), new TypeReference<List<JsonDto>>() {});
 						boolean error = false;
+						socket.close();
 						for(JsonDto receiveData : receiveDataList) {
 							JsonDto sendData = new JsonDto();
 							sendData.setAdminEmail(receiveData.getAdminEmail()); // 이메일
@@ -211,9 +212,6 @@ public class BatchAgent {
 							
 							// 관리 서버로 결과 전송
 							sendMessage(sendData);
-							
-							
-							socket.close();
 						}
 					}
 				} catch(JSONException e) {
